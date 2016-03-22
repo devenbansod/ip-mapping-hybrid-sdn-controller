@@ -79,11 +79,19 @@ class DBConnection:
 
 				return interface.fetchone()
 
+	# returns the 'details' column as a JSON - associative array
 	def getDetailsForDevice(self, router_id):
 		result = self.conn.execute("SELECT details FROM "
 			+ self.tbl_devices + " WHERE device_id = " + str(router_id)
 		)
 		return json.load(result.fetchone()[0])
+
+	# returns the MAC address from IP
+	def getMacFromIP(self, ip_addr):
+		return self.conn.execute("SELECT mac_addr FROM "
+			+ self.tbl_interfaces + " WHERE ip_addr = " + str(ip_addr)
+		)
+		return result.fetchone()[0]
 
 
 # helper function
