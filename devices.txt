@@ -1,0 +1,51 @@
+CREATE TABLE `devices` (
+	`device_id` INT(10) NOT NULL PRIMARY KEY,
+	`name` VARCHAR(50) NOT NULL,
+	`details` TEXT
+);
+
+CREATE TABLE `interfaces` (
+	`global_int_id` INT (10) NOT NULL,
+	`int_id` VARCHAR(50) NOT NULL,
+	`device_id` INT(10) NOT NULL,
+	`mac_addr` varchar(25) NOT NULL,
+	`ip_addr` varchar(15) NOT NULL,
+	`name` VARCHAR(25) NOT NULL,
+
+	PRIMARY KEY (`global_int_id`),
+	CONSTRAINT `devices_int_fk` FOREIGN KEY (`device_id`)
+	REFERENCES `devices` (`device_id`) ON DELETE RESTRICT
+);
+
+
+CREATE TABLE `links` (
+	`link_id` INT (10) NOT NULL,
+	`int1` INT (10) NOT NULL,
+	`int2` INT (10) NOT NULL,
+
+	PRIMARY KEY (`link_id`),
+	CONSTRAINT `int_links_fk` FOREIGN KEY (`int1`)
+	REFERENCES `interfaces` (`global_int_id`) ON DELETE CASCADE,
+	CONSTRAINT `int_links_fk_2` FOREIGN KEY (`int2`)
+	REFERENCES `interfaces` (`global_int_id`) ON DELETE CASCADE
+);
+
+
+INSERT INTO devices VALUES 
+	(1, 'first', '"username": "sdnp2p", "password": "sdnp2p"'), 
+	(2, 'second', '"username": "sdnp2p", "password": "sdnp2p"'),
+	(3, 'third', '"username": "sdnp2p", "password": "sdnp2p"'),
+	(4, 'fourth', '"username": "sdnp2p", "password": "sdnp2p"');
+
+INSERT INTO interfaces VALUES
+	(1, 1, 1, '01:01', '10.1', 'eth1'), 
+	(2, 2, 1, '01:02', '10.2', 'eth2'), 
+	(3, 1, 2, '02:01', '20.1', 'eth1'), 
+	(4, 2, 2, '02:02', '20.2', 'eth2'),
+	(5, 1, 3, '03:01', '30.1', 'eth1'), 
+	(6, 1, 4, '04:01', '40.1', 'eth1');
+
+INSERT INTO links VALUES 
+	(1, 1, 5),
+	(2, 2, 3),	
+	(3, 4, 6);
