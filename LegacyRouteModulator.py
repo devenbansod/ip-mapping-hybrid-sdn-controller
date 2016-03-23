@@ -29,7 +29,7 @@ class legacyRouteMod:
             # set network (ipRange[3]) output to intf
             tD = TelnetDriver()
             success = td.addStaticRoute(
-                self.route[i], self.ipRange[3], next_router=self.route[i-1], interface=intf
+                self.dbCon, self.route[i], self.ipRange[3], next_router=self.route[i-1], interface=intf
             )
 
             if (success == False):
@@ -40,7 +40,7 @@ class legacyRouteMod:
                     # get output interface information
                     intf = getOutputInterface(self.route[j], self.route[j-1])
                     td.removeStaticRoute(
-                        self.route[j], self.ipRange[3], next_router=self.route[j-1], interface=intf
+                        self.dbCon, self.route[j], self.ipRange[3], next_router=self.route[j-1], interface=intf
                     )
 
                 # and break

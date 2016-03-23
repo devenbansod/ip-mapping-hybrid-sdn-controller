@@ -17,8 +17,10 @@ import DBConnection
 
 
 class TelnetDriver:
+	dbCon = None
 
-	def __init__(self):
+	def __init__(self, dbCon):
+		self.dbCon = dbCon
 		print "Telnet Driver Initialized"
 
 	def addStaticRoute(self, 
@@ -31,45 +33,48 @@ class TelnetDriver:
 
 		add_static_route = "ip route add " + ip_prefix + " " + interface + " " + next_hop +  "\r"
 
-		try:
-			dbCon = DBConnection('test_db')
-			details = dbCon.getDetailsForDevice(router_id)
+		details = self.dbCon.getDetailsForDevice(router_id)
+		print "Attemting to connect to Switch"
 
-			print "Attemting to connect to Switch"
-			telconn = pexpect.spawn('telnet ' + details['ip'])
-			telconn.logfile = sys.stdout
+		while True:
+			try:
+				telconn = pexpect.spawn('telnet ' + details['ip'])
+				telconn.logfile = sys.stdout
 
-			telconn.expect(":")
-			telconn.send(details['password'] + "\r")
+				telconn.expect(":")
+				telconn.send(details['password'] + "\r")
 
-			telconn.expect(">")
-			telconn.send ("en\r")
+				telconn.expect(">")
+				telconn.send ("en\r")
 
-			telconn.expect (":")
-			telconn.send (details['password'] + "\r")
-			time.sleep(1)
+				telconn.expect (":")
+				telconn.send (details['password'] + "\r")
+				time.sleep(1)
 
-			telconn.expect ("#")
-			telconn.send ("config t\r")
-			time.sleep(1)
+				telconn.expect ("#")
+				telconn.send ("config t\r")
+				time.sleep(1)
 
-			telconn.expect ("#")
-			telconn.sendline (add_static_route)
-			telconn.expect("#")
+				telconn.expect ("#")
+				telconn.sendline (add_static_route)
+				telconn.expect("#")
 
-			telconn.send ("end\r")
-			telconn.expect("#")
+				telconn.send ("end\r")
+				telconn.expect("#")
 
-			telconn.send ("disable\r")
-			telconn.expect (">")
-			telconn.send ("q\r")
+				telconn.send ("disable\r")
+				telconn.expect (">")
+				telconn.send ("q\r")
 
-			print "Static Route Added"
-			return True
-		except:
-			print ""
-		finally:
-			return False
+				print "Static Route Added"
+				break
+			except pexpect.TIMEOUT:
+				print "run again"
+			except pexpect.EOF:
+				print "Unable to connect to remote host: No route to host\n"
+				break
+
+
 
 
 	def removeStaticRoute(self, 
@@ -82,43 +87,44 @@ class TelnetDriver:
 		remove_static_route = "no ip route add " \
 			+ ip_prefix + " " + interface + " " + next_hop +  "\r"
 
-		try:
-			dbCon = DBConnection('test_db')
-			details = dbCon.getDetailsForDevice(router_id)
+		details = self.dbCon.getDetailsForDevice(router_id)
+		print "Attemting to connect to Switch"
 
-			print "Attemting to connect to Switch"
-			telconn = pexpect.spawn('telnet ' + details['ip'])
-			telconn.logfile = sys.stdout
+		while True:
+			try:
+				telconn = pexpect.spawn('telnet ' + details['ip'])
+				telconn.logfile = sys.stdout
 
-			telconn.expect(":")
-			telconn.send(details['password'] + "\r")
+				telconn.expect(":")
+				telconn.send(details['password'] + "\r")
 
-			telconn.expect(">")
-			telconn.send ("en\r")
+				telconn.expect(">")
+				telconn.send ("en\r")
 
-			telconn.expect (":")
-			telconn.send (details['password'] + "\r")
-			time.sleep(1)
+				telconn.expect (":")
+				telconn.send (details['password'] + "\r")
+				time.sleep(1)
 
-			telconn.expect ("#")
-			telconn.send ("config t\r")
-			time.sleep(1)
+				telconn.expect ("#")
+				telconn.send ("config t\r")
+				time.sleep(1)
 
-			telconn.expect ("#")
-			telconn.sendline (remove_static_route)
-			telconn.expect("#")
+				telconn.expect ("#")
+				telconn.sendline (remove_static_route)
+				telconn.expect("#")
 
-			telconn.send ("end\r")
-			telconn.expect("#")
+				telconn.send ("end\r")
+				telconn.expect("#")
 
-			telconn.send ("disable\r")
-			telconn.expect (">")
-			telconn.send ("q\r")
+				telconn.send ("disable\r")
+				telconn.expect (">")
+				telconn.send ("q\r")
 
-			print "Static Route Added"
-			return True
-		except:
-			print ""
-		finally:
-			return False
+				print "Static Route Added"
+				break
+			except pexpect.TIMEOUT:
+				print "run again"
+			except pexpect.EOF:
+				print "Unable to connect to remote host: No route to host\n"
+				break
 
