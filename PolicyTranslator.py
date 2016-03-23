@@ -20,11 +20,14 @@ class policyTranslator(app_manager.RyuApp):
     # actions = []                                  # Actions to be taken
     # mapRange = []                                 # Range of IP addresses to map the policy to
     A = None                                        # Instance of the allocator object of network
+    dbCon = None
+
 
     # Constructor
     def __init__(self, *args, **kwargs):
         super(policyTranslator, self).__init__(*args, **kwargs)
         self.A = allocator()
+        self.dbCon = DBConnection('test_db')
 
     # PACKET - IN method handler
     # would require to handle the Internet IP Clash problem
@@ -48,18 +51,17 @@ class policyTranslator(app_manager.RyuApp):
     # src   = 192.168.1.0/24
     # dst   = 192.168.2.0/24
     # path  = [s1_dev_id, r1_dev_id, .... other Rs .... s2_dev_id]
-    # map   = 1.0.0.0/24
-    def setPolicy (self, src, dst, path, m, a):
+    def setPolicy (self, src, dst, path):
         # get Range to Map the Policy path to
         mapRange = getAllocation (dst)
 
         # Call the legacy route modulator to install routes in legacy devices
-        LRM = legacyRouteMod(mapRange, route[1:])
+        LRM = legacyRouteMod(self.dbCon, mapRange, route[1:])
         LRM.addRoutes()
 
         # Call the twin flow pusher to add flows
         # into the source(first in route) and destination(last in route) SDN switches
-        TFP = twinFlowPusher(mapRange, m, route[0], route[1], route[-1])
+        TFP = twinFlowPusher(self.dbCon, mapRange, m, route[0], route[1], route[-1])
         TFP.push()
 
 
@@ -68,8 +70,10 @@ class twinFlowPusher:
     sdn1_id = ""
     r1_dev_id = ""
     sdnN_id = ""
+    dbCon = None
 
-    def __init__(self, mapRange, matchConditions, sdn1_id, r1_dev_id, sdnN_id):
+    def __init__(self, dbCon, mapRange, matchConditions, sdn1_id, r1_dev_id, sdnN_id):
+        self.dBcon = dbCon
         self.sdn1_id = sdn1_id
         self.sdnN_id = sdnN_id
         self.r1_dev_id = r1_dev_id
@@ -77,7 +81,6 @@ class twinFlowPusher:
         self.matches = matchConditions
 
     def push(self):
-        dbCon = DBConnection('test_db')
 
         # FIRST CHECK if Reverse Mapping entries already added in Dest SDN
         # Need to remeber if added or not
@@ -117,10 +120,10 @@ class twinFlowPusher:
         # NOW, add the Mapping entries in Source SDN
 
         # required for setting the Output ACTION in Flow entry to-be-added
-        out_port = dbCon.getInterfaceConnectedTo(self.sdn1_id, self.r1_dev_id)
+        out_port = self.dbCon.getInterfaceConnectedTo(self.sdn1_id, self.r1_dev_id)
 
         # required for setting the Set field(Dest MAC address) action
-        router_rec_port = dbCon.getInterfaceConnectedTo(self.r1_dev_id, self.sdn1_id)
+        router_rec_port = self.dbCon.getInterfaceConnectedTo(self.r1_dev_id, self.sdn1_id)
 
         # add Mapping entries in source SDN switch
         i = 0

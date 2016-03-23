@@ -1,19 +1,20 @@
-import DBConnection
+from DBConnection import DBConnection
 import TelnetDriver
 
 class legacyRouteMod:
     ipRange = []
     route = []
+    dbCon = None
 
-    def __init__ (self, map, path):
+    def __init__ (self, dbCon, map, path):
         self.ipRange = map
         self.route = reversed(path)
+        self.dbCon = dbCon
 
     def getOutputInterface(src, dst):
         # return the interface in src which connects to dst
         # query database for this
-        conn = DBConnection('test_db')
-        interface = conn.getInterfaceConnectedTo(src, dst)
+        interface = self.dbCon.getInterfaceConnectedTo(src, dst)
 
         # the interface 'name' is interface[5]
         return interface[5]

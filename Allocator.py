@@ -53,13 +53,18 @@ class allocator:
 
 
 
-A = allocator()
-print "Next range for subnet /8:", A.getNext(8)
-print "Next range for subnet /16:", A.getNext(16)
-print "Next range for subnet /24:", A.getNext(24)
-print "Next range for subnet /16:", A.getNext(16)
-print "Next range for subnet /24:", A.getNext(24)
-print "Next range for subnet /24:", A.getNext(24)
-print "Next range for subnet /16:", A.getNext(16)
-print "Next range for subnet /23:", A.getNext(23)
-print "Next range for subnet /23:", A.getNext(23)
+class test_allocator:
+    def __init__():
+        print "Testing Allocator"
+
+    def testAll(self):
+        A = allocator()
+        print "Next range for subnet /8:", A.getNext(8)
+        print "Next range for subnet /16:", A.getNext(16)
+        print "Next range for subnet /24:", A.getNext(24)
+        print "Next range for subnet /16:", A.getNext(16)
+        print "Next range for subnet /24:", A.getNext(24)
+        print "Next range for subnet /24:", A.getNext(24)
+        print "Next range for subnet /16:", A.getNext(16)
+        print "Next range for subnet /23:", A.getNext(23)
+        print "Next range for subnet /23:", A.getNext(23)

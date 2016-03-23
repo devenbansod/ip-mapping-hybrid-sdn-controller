@@ -29,23 +29,3 @@ CREATE TABLE `links` (
 	CONSTRAINT `int_links_fk_2` FOREIGN KEY (`int2`)
 	REFERENCES `interfaces` (`global_int_id`) ON DELETE CASCADE
 );
-
-
-INSERT INTO devices VALUES 
-	(1, 'first', '"username": "sdnp2p", "password": "sdnp2p", "ip" : "192.168.1.1"'), 
-	(2, 'second', '"username": "sdnp2p", "password": "sdnp2p"'),
-	(3, 'third', '"username": "sdnp2p", "password": "sdnp2p"'),
-	(4, 'fourth', '"username": "sdnp2p", "password": "sdnp2p"');
-
-INSERT INTO interfaces VALUES
-	(1, 1, 1, '01:01', '10.1', 'eth1'), 
-	(2, 2, 1, '01:02', '10.2', 'eth2'), 
-	(3, 1, 2, '02:01', '20.1', 'eth1'), 
-	(4, 2, 2, '02:02', '20.2', 'eth2'),
-	(5, 1, 3, '03:01', '30.1', 'eth1'), 
-	(6, 1, 4, '04:01', '40.1', 'eth1');
-
-INSERT INTO links VALUES 
-	(1, 1, 5),
-	(2, 2, 3),	
-	(3, 4, 6);
