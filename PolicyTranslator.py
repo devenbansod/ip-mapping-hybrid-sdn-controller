@@ -10,6 +10,7 @@ from ryu.lib.packet import ethernet
 from ryu.lib.packet import ether_types
 from LegacyRouteModulator import legacyRouteMod
 from DBConnection import DBConnection
+from Allocator import allocator
 
 class policyTranslator(app_manager.RyuApp):
     # src = ""                                      # Source subnet of the policy
@@ -22,8 +23,8 @@ class policyTranslator(app_manager.RyuApp):
 
     # Constructor
     def __init__(self, *args, **kwargs):
-        super(SimpleSwitch, self).__init__(*args, **kwargs)
-        self.A = Allocator()
+        super(policyTranslator, self).__init__(*args, **kwargs)
+        self.A = allocator()
 
     # PACKET - IN method handler
     # would require to handle the Internet IP Clash problem
