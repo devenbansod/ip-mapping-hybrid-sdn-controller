@@ -12,14 +12,14 @@ class DBConnection:
 	tbl_devices = "devices"
 	tbl_interfaces = "interfaces"
 	tbl_links = "links"
-	db_structure_file = "db_structure.sql"
+	db_structure_file = "ip_mapping/db_structure.sql"
 
 	next_global_int_id = 1
 	next_link_id = 1
 
 	def __init__(self, db_file = None):
 		if db_file == None:
-			db_file = db
+			db_file = self.db
 
 		os.system("rm " + self.db)
 		print "\n*** Initialising and connecting to database"
