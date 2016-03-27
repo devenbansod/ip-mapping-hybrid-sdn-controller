@@ -32,7 +32,7 @@ CREATE TABLE `links` (
 
 
 INSERT INTO devices VALUES 
-	(1, 'first', '"username": "sdnp2p", "password": "sdnp2p", "ip" : "192.168.1.1"'), 
+	(1, 'first', '{"username": "zebra", "password": "zebra", "ip" : "127.0.0.1", "port" : "2601"}'),
 	(2, 'second', '"username": "sdnp2p", "password": "sdnp2p"'),
 	(3, 'third', '"username": "sdnp2p", "password": "sdnp2p"'),
 	(4, 'fourth', '"username": "sdnp2p", "password": "sdnp2p"');

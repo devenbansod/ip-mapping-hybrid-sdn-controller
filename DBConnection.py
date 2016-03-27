@@ -12,7 +12,7 @@ class DBConnection:
 	tbl_devices = "devices"
 	tbl_interfaces = "interfaces"
 	tbl_links = "links"
-	db_structure_file = "ip_mapping/db_structure.sql"
+	db_structure_file = "db_structure.sql"
 
 	next_global_int_id = 1
 	next_link_id = 1
@@ -96,7 +96,8 @@ class DBConnection:
 		result = self.conn.execute("SELECT details FROM "
 			+ self.tbl_devices + " WHERE device_id = " + str(router_id)
 		)
-		return json.load(result.fetchone()[0])
+		# print result.fetchone()[0]
+		return json.loads(result.fetchone()[0])
 
 	# returns the MAC address from IP
 	def getMacFromIP(self, ip_addr):
