@@ -43,7 +43,7 @@ class DBConnection:
 
 	# Returns all the interfaces
 	def getInterfaces(self):
-		return self.conn.execute("Select * from " + self.tbl_interfaces + ";")		
+		return self.conn.execute("Select * from " + self.tbl_interfaces + ";")
 
 	# Returns the interfaces for a particular device
 	def getInterfacesForDevice(self, device_id):
@@ -96,12 +96,11 @@ class DBConnection:
 		result = self.conn.execute("SELECT details FROM "
 			+ self.tbl_devices + " WHERE device_id = " + str(router_id)
 		)
-		# print result.fetchone()[0]
 		return json.loads(result.fetchone()[0])
 
 	# returns the MAC address from IP
 	def getMacFromIP(self, ip_addr):
-		return self.conn.execute("SELECT mac_addr FROM "
+		result = self.conn.execute("SELECT mac_addr FROM "
 			+ self.tbl_interfaces + " WHERE ip_addr = " + str(ip_addr)
 		)
 		return result.fetchone()[0]
