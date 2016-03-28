@@ -11,6 +11,14 @@ from ryu.lib.packet import ether_types
 from LegacyRouteModulator import legacyRouteMod
 from DBConnection import DBConnection
 from Allocator import allocator
+from Allocator import ip2int
+from Allocator import int2ip
+
+def net2str (net):
+    return (str(net[0]) + "/" + str(net[1]))
+
+def str2net (netStr):
+    return netStr.split("/")
 
 class policyTranslator(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -33,17 +41,28 @@ class policyTranslator(app_manager.RyuApp):
 
     # PACKET - IN method handler
     # would require to handle the Internet IP Clash problem
+    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
+    def _packet_in_handler(self, ev):
+        msg = ev.msg
+        datapath = msg.datapath
+        ofproto = datapath.ofproto
 
-    # Function to extract subnet size from network
-    def getSubnet (net):
-        # Parse network details to extract and return subnet
-        return net
+        pkt = packet.Packet(msg.data)
+        
+        pkt_ipv4 = pkt.get_protocol(ipv4.ipv4)
+
+        src = pkt_ipv4.src
+        dst = pkt_ipv4.dst
+
+        if self.A.checkifAllocated(dst):
+            self.A.getNext(net2str ([dst, 32]))
 
     # Function to get the range of allocated IPs for the policy
     # by calling the getNext function of the allocator object
-    def getAllocation (dst):
+    def getAllocation (dest):
+        dst = str2net (dest)
         # Get subnet information from the destination information
-        sub = self.getSubnet(dst)
+        sub = dst [1]
 
         # Call the allocator to get a range to map to
         return self.A.getNext(sub)
@@ -62,26 +81,27 @@ class policyTranslator(app_manager.RyuApp):
 
         # Call the twin flow pusher to add flows
         # into the source(first in route) and destination(last in route) SDN switches
-        twinFlowPusher.push(self.dbCon, mapRange, m, route[0], route[1], route[-1])
+        twinFlowPusher.push(self.dbCon, mapRange, m, src, dst, route[0], route[1], route[-1])
 
 
 class twinFlowPusher:
     "Push the flow entries in two end SDN switches"
 
     @staticmethod
-    def push(dbCon, mapRange, matchConditions, sdn1_id, r1_dev_id, sdnN_id):
+    def push(dbCon, mapRange, matchConditions, src, dst, sdn1_id, r1_dev_id, sdnN_id):
 
         # FIRST CHECK if Reverse Mapping entries already added in Dest SDN
         # Need to remeber if added or not
         if already_added[sdnN_id] == False:
             i = 0
             # iterate over mapRange IPs with 'i'
-            for i in range(1, len(mapRange)):
+            for i in range(mapRange[0], mapRange[1]+1):
                 # get Datapath from dpid
                 datapath = DPset.get(sdn1_id)
 
-                dest_wildcard = matchConditions['mapRange'] + "" # append appropriate wildcard here
-                host_mac = dbCon.getMacFromIp(mapRange[i]) # from the interface table in database
+                # dest_wildcard = matchConditions['mapRange'] + "" # append appropriate wildcard here
+                dest_wildcard = int2ip ( 1<<mapRange[2] - 1 )
+                host_mac = dbCon.getMacFromIp(i) # from the interface table in database
 
                 # need to make this dynamic
                 matches = datapath.ofproto_parser.OFPMatch(
@@ -93,7 +113,8 @@ class twinFlowPusher:
                 )
 
                 # need to write this
-                rev_mapped_dest_ip = getRevMappedDestinationIP(mapRange[i])
+                # rev_mapped_dest_ip = getRevMappedDestinationIP(i)
+                rev_mapped_dest_ip = (i and dest_wildcard) or (str2net(dst))[0]
 
                 # need to use OpenFlow 1.2+ here
                 actions = [
@@ -103,7 +124,7 @@ class twinFlowPusher:
                 ]
 
                 # call the add flow method
-                self.add_flow(datapath, priority=60000, match=self.matches, actions=actions)
+                add_flow(datapath, priority=60000, match=self.matches, actions=actions)
 
 
         # NOW, add the Mapping entries in Source SDN
@@ -117,22 +138,22 @@ class twinFlowPusher:
         # add Mapping entries in source SDN switch
         i = 0
         # iterate over mapRange IPs with 'i'
-        for i in range(1, len(mapRange)):
+        for i in range(mapRange[0], mapRange[1]+1):
             # get Datapath from dpid
             datapath = DPset.get(sdn1_id)
 
             # need to make this dynamic
             matches = datapath.ofproto_parser.OFPMatch(
                 nw_proto = matchConditions['nw_proto'],
-                nw_src   = matchConditions['src_ip'][i],
-                nw_dst   = matchConditions['nw_dst'],
+                nw_src   = src,
+                nw_dst   = (i and dest_wildcard) or (str2net(dst))[0],
                 dl_type  = matchConditions['dl_type'],
                 tcp_dst  = matchConditions['tcp_dst_port']
             )
 
             # need to use OpenFlow 1.2+ here
             actions = [
-                datapath.ofproto_parser.OFPActionSetField(nw_dst=self.mapRange[i]),
+                datapath.ofproto_parser.OFPActionSetField(nw_dst=i),
                 datapath.ofproto_parser.OFPActionSetField(dl_dst=router_rec_port['mac_addr']),
                 datapath.ofproto_parser.OFPActionOutput(out_port)
             ]
