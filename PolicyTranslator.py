@@ -27,11 +27,10 @@ class policyTranslator(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(policyTranslator, self).__init__(*args, **kwargs)
         self.A = allocator()
-        self.dbCon = DBConnection('test_db')
+        self.dbCon = DBConnection()
 
     # PACKET - IN method handler
     # would require to handle the Internet IP Clash problem
-
 
     # Function to extract subnet size from network
     def getSubnet (net):
@@ -61,26 +60,14 @@ class policyTranslator(app_manager.RyuApp):
 
         # Call the twin flow pusher to add flows
         # into the source(first in route) and destination(last in route) SDN switches
-        TFP = twinFlowPusher(self.dbCon, mapRange, m, route[0], route[1], route[-1])
-        TFP.push()
+        twinFlowPusher.push(self.dbCon, mapRange, m, route[0], route[1], route[-1])
 
 
 class twinFlowPusher:
     "Push the flow entries in two end SDN switches"
-    sdn1_id = ""
-    r1_dev_id = ""
-    sdnN_id = ""
-    dbCon = None
 
-    def __init__(self, dbCon, mapRange, matchConditions, sdn1_id, r1_dev_id, sdnN_id):
-        self.dBcon = dbCon
-        self.sdn1_id = sdn1_id
-        self.sdnN_id = sdnN_id
-        self.r1_dev_id = r1_dev_id
-        self.mapRange = mapRange
-        self.matches = matchConditions
-
-    def push(self):
+    @staticmethod
+    def push(dbCon, mapRange, matchConditions, sdn1_id, r1_dev_id, sdnN_id):
 
         # FIRST CHECK if Reverse Mapping entries already added in Dest SDN
         # Need to remeber if added or not
@@ -89,10 +76,10 @@ class twinFlowPusher:
             # iterate over mapRange IPs with 'i'
             for i in range(1, len(mapRange)):
                 # get Datapath from dpid
-                datapath = DPset.get(self.sdn1_id)
+                datapath = DPset.get(sdn1_id)
 
                 dest_wildcard = matchConditions['mapRange'] + "" # append appropriate wildcard here
-                host_mac = dbCon.getMacFromIp(self.mapRange[i]) # from the interface table in database
+                host_mac = dbCon.getMacFromIp(mapRange[i]) # from the interface table in database
 
                 # need to make this dynamic
                 matches = datapath.ofproto_parser.OFPMatch(
@@ -120,17 +107,17 @@ class twinFlowPusher:
         # NOW, add the Mapping entries in Source SDN
 
         # required for setting the Output ACTION in Flow entry to-be-added
-        out_port = self.dbCon.getInterfaceConnectedTo(self.sdn1_id, self.r1_dev_id)
+        out_port = dbCon.getInterfaceConnectedTo(sdn1_id, r1_dev_id)
 
         # required for setting the Set field(Dest MAC address) action
-        router_rec_port = self.dbCon.getInterfaceConnectedTo(self.r1_dev_id, self.sdn1_id)
+        router_rec_port = dbCon.getInterfaceConnectedTo(r1_dev_id, sdn1_id)
 
         # add Mapping entries in source SDN switch
         i = 0
         # iterate over mapRange IPs with 'i'
         for i in range(1, len(mapRange)):
             # get Datapath from dpid
-            datapath = DPset.get(self.sdn1_id)
+            datapath = DPset.get(sdn1_id)
 
             # need to make this dynamic
             matches = datapath.ofproto_parser.OFPMatch(
@@ -149,10 +136,10 @@ class twinFlowPusher:
             ]
 
             # call the add flow method
-            self.add_flow(datapath, priority=60000, match=self.matches, actions=actions)
+            add_flow(datapath, priority=60000, match=self.matches, actions=actions)
 
 
-    def add_flow(self, datapath, priority, match, actions, buffer_id=None):
+def add_flow(datapath, priority, match, actions, buffer_id=None):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
@@ -167,3 +154,14 @@ class twinFlowPusher:
                                     match=match, instructions=inst)
         datapath.send_msg(mod)
 
+
+class TwinFlowPusherTester:
+    def __init__(self):
+        "Tester initialized"
+        self.dbCon = DBConnection()
+
+    def testPush():
+        twinFlowPusher.push(self.dbCon, ['1.0.0.1'], {'nw_proto' : 'ip', 'src_ip' : '10.0.1.0/24', 'nw_dst' : '10.0.2.1'})
+
+# tester = TwinFlowPusherTester()
+# tester.testPush()

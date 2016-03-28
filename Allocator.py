@@ -2,11 +2,11 @@ import socket, struct
 
 # Convert IP address from dotted decimal form (string) to a 32bit integer value
 def ip2int(addr):
-    return struct.unpack("!I", socket.inet_aton(addr))[0]   
+    return struct.unpack("!I", socket.inet_aton(addr))[0]
 
 # Convert IP address from integer form to dotted decimat form
 def int2ip(addr):
-    return socket.inet_ntoa(struct.pack("!I", addr)) 
+    return socket.inet_ntoa(struct.pack("!I", addr))
 
 class allocator:
     indices = {}
