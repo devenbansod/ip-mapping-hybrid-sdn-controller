@@ -3,7 +3,7 @@ from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.controller.dpset import DPSet
-from ryu.ofproto import ofproto_v1_0
+from ryu.ofproto import ofproto_v1_3
 from ryu.lib.mac import haddr_to_bin
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
@@ -13,6 +13,8 @@ from DBConnection import DBConnection
 from Allocator import allocator
 
 class policyTranslator(app_manager.RyuApp):
+    OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
+
     # src = ""                                      # Source subnet of the policy
     # dst = ""                                      # Destination subnet of the policy
     # route = []                                    # Route of the policy
