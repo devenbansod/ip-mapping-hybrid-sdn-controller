@@ -12,7 +12,7 @@ class allocator:
     indices = {}			# offsets allocated to subnet size in respective buckets
     buckets = []			# list of buckets allocated
     def __init__(self):
-        self.indices = {k: [] for k in range(32)}
+        self.indices = {k: [] for k in range(33)}
         self.buckets.append(0)
         self.addRestrictedRanges()
 
@@ -54,11 +54,14 @@ class allocator:
     def checkIfAllocated (self, ip):
         ip = ip2int (ip)
         for i in range(32):
-    	    for bckt in self.indices[i]
+    	    for bckt in self.indices[i]:
                     for j in range (1, len (bckt)):
-                        start = (bckt[i][0]*(1<<24)) + (bckt[i][j]*(1<<(32-i)))
-            		    end = start + (1<<(32-i)) - 1
-            		    if ip >= start or ip <= end
+                        print i
+                        print bckt
+                        print j
+                        start = (bckt[0]*(1<<24)) + (bckt[j]*(1<<(32-i)))
+                        end = start + (1<<(32-i)) - 1
+                        if ip >= start and ip <= end:
             		        return True
         return False
 
