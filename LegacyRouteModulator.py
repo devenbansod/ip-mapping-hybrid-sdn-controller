@@ -8,22 +8,22 @@ class legacyRouteMod:
 
     def __init__ (self, dbCon, map, path):
         self.ipRange = map
-        self.route = reversed(path)
+        path.reverse()
+        self.route = path
         self.dbCon = dbCon
 
-    def getOutputInterface(src, dst):
+    def getOutputInterface(self, src, dst):
         # return the interface in src which connects to dst
         # query database for this
         interface = self.dbCon.getInterfaceConnectedTo(src, dst)
-
         # the interface 'name' is interface[5]
         return interface[5]
 
 
-    def addRoutes():
-        for i in range(1, len(route)):
+    def addRoutes(self):
+        for i in range(1, len(self.route)):
             # get output interface information
-            intf = getOutputInterface(self.route[i], self.route[i-1])
+            intf = self.getOutputInterface(self.route[i], self.route[i-1])
 
             # Call expect script to add route to the router
             # set network (ipRange[3]) output to intf

@@ -100,10 +100,16 @@ class DBConnection:
 
 	# returns the MAC address from IP
 	def getMacFromIP(self, ip_addr):
-		result = self.conn.execute("SELECT mac_addr FROM "
-			+ self.tbl_interfaces + " WHERE ip_addr = " + str(ip_addr)
+		# print ip_addr
+		result = self.conn.execute("SELECT mac_addr, device_id FROM "
+			+ self.tbl_interfaces + " WHERE ip_addr = '" + str(ip_addr) + "'"
 		)
-		return result.fetchone()[0]
+		data = result.fetchone()
+		if data is None:
+			return None
+		else:
+			# print data
+			return data
 
 	def addDevice(self, device_id, name, details):
 		self.conn.execute("INSERT INTO " + self.tbl_devices

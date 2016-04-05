@@ -26,6 +26,7 @@ class allocator:
         self.indices[16].append([169, 154])
 
     def getNext (self, subnet):
+        subnet = int(subnet)
         bucket, offset = self.addNext (subnet)
         startIP = (bucket*(1<<24)) + (offset*(1<<(32-subnet)))
         endIP = startIP + (1<<(32-subnet)) - 1
@@ -42,6 +43,7 @@ class allocator:
 
     def addNext (self, subnet):
         # iterate over list of subnets
+        subnet = int(subnet)
         for i in range(0,len(self.indices[subnet])):
             # check if bucket is not full
             if (len(self.indices[subnet][i]) < (1<<(subnet-8))):
@@ -56,9 +58,6 @@ class allocator:
         for i in range(32):
     	    for bckt in self.indices[i]:
                     for j in range (1, len (bckt)):
-                        print i
-                        print bckt
-                        print j
                         start = (bckt[0]*(1<<24)) + (bckt[j]*(1<<(32-i)))
                         end = start + (1<<(32-i)) - 1
                         if ip >= start and ip <= end:
@@ -68,7 +67,7 @@ class allocator:
 
 
 class test_allocator:
-    def __init__():
+    def __init__(self):
         print "Testing Allocator"
 
     def testAll(self):
@@ -82,3 +81,6 @@ class test_allocator:
         print "Next range for subnet /16:", A.getNext(16)
         print "Next range for subnet /23:", A.getNext(23)
         print "Next range for subnet /23:", A.getNext(23)
+
+# t = test_allocator()
+# t.testAll()

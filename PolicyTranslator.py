@@ -22,6 +22,11 @@ def net2str (net):
 def str2net (netStr):
     return netStr.split("/")
 
+def getMaskWildcard(subnet_size):
+    dest_wildcard = int2ip ( (1<<(32-int(subnet_size))) - 1 )
+    netmask = int2ip(((1<<32 )- 1) - ip2int(dest_wildcard))
+    return [netmask, dest_wildcard]
+
 class policyTranslator(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
@@ -33,6 +38,9 @@ class policyTranslator(app_manager.RyuApp):
     # mapRange = []                                 # Range of IP addresses to map the policy to
     A = None                                        # Instance of the allocator object of network
     dbCon = None
+    datapath_store = {}
+    curr = 0
+    mac_to_port = {}
 
 
     # Constructor
@@ -41,10 +49,14 @@ class policyTranslator(app_manager.RyuApp):
         self.A = allocator()
         self.dbCon = DBConnection()
         self.mac_to_port = {}
+        # self.setPolicy("10.0.1.0/24", {'tcp_dst' : 23}, "10.0.2.0/24", [1, 4, 2], )
+        self.datapath_store = {}
+        self.curr = 0
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
         datapath = ev.msg.datapath
+        self.datapath_store[datapath.id] = datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
@@ -59,6 +71,11 @@ class policyTranslator(app_manager.RyuApp):
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
                                           ofproto.OFPCML_NO_BUFFER)]
         add_flow(datapath, 0, match, actions)
+        self.curr = self.curr + 1
+
+        if (self.curr > 1):
+            self.setPolicy({'tcp_dst' : 23, 'nw_proto' : 6, 'dl_type' : 0x0800}, "10.0.1.0/24", "10.0.2.0/24", [1, 4, 2])
+
 
 
     # PACKET - IN method handler
@@ -79,7 +96,6 @@ class policyTranslator(app_manager.RyuApp):
 
         src = pkt_ipv4.src
         dst = pkt_ipv4.dst
-        print src, dst
 
         if self.A.checkIfAllocated(dst):
             self.A.getNext(32)
@@ -132,6 +148,8 @@ class policyTranslator(app_manager.RyuApp):
                 return
             else:
                 add_flow(datapath, 1, match, actions)
+            # print "their ", match 
+
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
             data = msg.data
@@ -143,7 +161,7 @@ class policyTranslator(app_manager.RyuApp):
 
     # Function to get the range of allocated IPs for the policy
     # by calling the getNext function of the allocator object
-    def getAllocation (dest):
+    def getAllocation (self, dest):
         dst = str2net (dest)
         # Get subnet information from the destination information
         sub = dst [1]
@@ -154,96 +172,130 @@ class policyTranslator(app_manager.RyuApp):
     # would be called by the Network Administrator
     # src   = 192.168.1.0/24
     # dst   = 192.168.2.0/24
-    # path  = [s1_dev_id, r1_dev_id, .... other Rs .... s2_dev_id]
-    def setPolicy (self, src, dst, path):
+    # match = ['tcp_port' : '23']
+    # path  = [s1_dev_id, r1_dev_id, .... other Rs .... s2_dev_id]  
+    def setPolicy (self, m, src, dst, path):
         # get Range to Map the Policy path to
-        mapRange = getAllocation (dst)
+        mapRange = self.getAllocation (dst)
 
         # Call the legacy route modulator to install routes in legacy devices
-        LRM = legacyRouteMod(self.dbCon, mapRange, route[1:])
+        LRM = legacyRouteMod(self.dbCon, mapRange, path[1:-1])
         LRM.addRoutes()
 
         # Call the twin flow pusher to add flows
         # into the source(first in route) and destination(last in route) SDN switches
-        twinFlowPusher.push(self.dbCon, mapRange, m, src, dst, route[0], route[1], route[-1])
-
+        twinFlowPusher.push(self.datapath_store[path[0]], self.datapath_store[path[-1]],
+            self.dbCon, mapRange, m, src, dst, path[0], path[1], path[-1]
+        )
 
 class twinFlowPusher:
     "Push the flow entries in two end SDN switches"
 
     @staticmethod
-    def push(dbCon, mapRange, matchConditions, src, dst, sdn1_id, r1_dev_id, sdnN_id):
+    def push(dp1, dp2, dbCon, mapRange, matchConditions, src, dst, sdn1_id, r1_dev_id, sdnN_id):
+        already_added = {int(sdnN_id) : False}
+        dest_netmask, dest_wildcard = getMaskWildcard(str2net(dst)[1])
+        src_netmask, src_wildcard = getMaskWildcard(str2net(src)[1])
+        print str2net(src), str2net(dst)
 
         # FIRST CHECK if Reverse Mapping entries already added in Dest SDN
         # Need to remeber if added or not
-        if already_added[sdnN_id] == False:
+        if already_added[int(sdnN_id)] == False:
             i = 0
             # iterate over mapRange IPs with 'i'
-            for i in range(mapRange[0], mapRange[1]+1):
+            # print mapRange
+            # print "St" , ip2int(mapRange[0])
+            # print "end", ip2int(mapRange[1])+1
+            for i in range(ip2int(mapRange[0]), ip2int(mapRange[1])+1):
                 # get Datapath from dpid
-                datapath = DPset.get(sdn1_id)
+                # datapath = DPset.get(sdn1_id)
 
                 # dest_wildcard = matchConditions['mapRange'] + "" # append appropriate wildcard here
-                dest_wildcard = int2ip ( 1<<mapRange[2] - 1 )
-                host_mac = dbCon.getMacFromIp(i) # from the interface table in database
-
+                # print "map ", mapRange
+                # ip_back_map = int2ip( (1<<map
+                # print i
                 # need to make this dynamic
-                matches = datapath.ofproto_parser.OFPMatch(
-                    nw_proto = matchConditions['nw_proto'],
-                    nw_src   = matchConditions['src_ip'][i],
-                    nw_dst   = dest_wildcard,
-                    dl_type  = matchConditions['dl_type'],
-                    tcp_dst  = matchConditions['tcp_dst_port']
+                # print matchConditions
+                matches = dp2.ofproto_parser.OFPMatch(
+                    ip_proto=matchConditions['nw_proto'],
+                    # ipv4_dst=dest_wildcard,
+                    eth_type  = matchConditions['dl_type'],
+                    tcp_dst=matchConditions['tcp_dst']
                 )
+                # print matches
 
                 # need to write this
                 # rev_mapped_dest_ip = getRevMappedDestinationIP(i)
-                rev_mapped_dest_ip = (i and dest_wildcard) or (str2net(dst))[0]
+                # print "wild", dest_wildcard
+                # print "dst", dest_wildcard
+                rev_mapped_dest_ip = (i & ip2int(dest_wildcard)) | ip2int((str2net(dst))[0])
+                # print "rev ", rev_mapped_dest_ip, "i", i, (i & ip2int(dest_wildcard)), ip2int((str2net(dst))[0])
 
+                # from the interface table in database
+                # print "int2ip(rev_mapped_dest_ip)
+                host = dbCon.getMacFromIP(int2ip(rev_mapped_dest_ip)) 
+
+                if host == None:
+                    continue
+
+                host_mac = str(host[0]).encode('utf-8')
+                # print "deveice id", str(host[1]).encode('utf-8')
+                result =  dbCon.getInterfaceConnectedTo(sdnN_id, str(host[1]).encode('utf-8'))
+                # print "1", result
+                out_port = int(result[1])
+                # print out_port
                 # need to use OpenFlow 1.2+ here
                 actions = [
-                    datapath.ofproto_parser.OFPActionSetField(nw_dst=rev_mapped_dest_ip),
-                    datapath.ofproto_parser.OFPActionSetField(dl_dst=host_mac),
-                    datapath.ofproto_parser.OFPActionOutput(out_port)
+                    dp2.ofproto_parser.OFPActionSetField(ipv4_dst=int2ip(rev_mapped_dest_ip)),
+                    dp2.ofproto_parser.OFPActionSetField(eth_dst=host_mac),
+                    dp2.ofproto_parser.OFPActionOutput(out_port)
                 ]
 
                 # call the add flow method
-                add_flow(datapath, priority=60000, match=self.matches, actions=actions)
+                add_flow(dp2, priority=60000, match=matches, actions=actions)
 
 
         # NOW, add the Mapping entries in Source SDN
 
         # required for setting the Output ACTION in Flow entry to-be-added
-        out_port = dbCon.getInterfaceConnectedTo(sdn1_id, r1_dev_id)
+        result = dbCon.getInterfaceConnectedTo(sdn1_id, r1_dev_id)
+        # print "2", result
+        out_port = int(result[1])
 
         # required for setting the Set field(Dest MAC address) action
-        router_rec_port = dbCon.getInterfaceConnectedTo(r1_dev_id, sdn1_id)
+        result = dbCon.getInterfaceConnectedTo(r1_dev_id, sdn1_id)
+        router_rec_port_mac = result[2]
+
 
         # add Mapping entries in source SDN switch
         i = 0
         # iterate over mapRange IPs with 'i'
-        for i in range(mapRange[0], mapRange[1]+1):
+        for i in range(ip2int(mapRange[0]), ip2int(mapRange[1])+1):
             # get Datapath from dpid
-            datapath = DPset.get(sdn1_id)
+            # datapath = DPset.get(sdn1_id)
 
             # need to make this dynamic
-            matches = datapath.ofproto_parser.OFPMatch(
-                nw_proto = matchConditions['nw_proto'],
-                nw_src   = src,
-                nw_dst   = (i and dest_wildcard) or (str2net(dst))[0],
-                dl_type  = matchConditions['dl_type'],
-                tcp_dst  = matchConditions['tcp_dst_port']
+            # print int2ip((i & ip2int(dest_wildcard)) | ip2int((str2net(dst))[0])) + "/" + netmask
+            # print src
+            # print (int2ip((i & ip2int(dest_wildcard)) | ip2int((str2net(dst))[0])), dest_netmask)
+            matches = dp1.ofproto_parser.OFPMatch(
+                ip_proto = matchConditions['nw_proto'],
+                ipv4_src   = (str2net(src)[0], src_netmask),
+                ipv4_dst   = int2ip((i & ip2int(dest_wildcard)) | ip2int((str2net(dst))[0])),
+                eth_type  = matchConditions['dl_type'],
+                tcp_dst  = matchConditions['tcp_dst']
             )
 
             # need to use OpenFlow 1.2+ here
+            print int2ip(i)
             actions = [
-                datapath.ofproto_parser.OFPActionSetField(nw_dst=i),
-                datapath.ofproto_parser.OFPActionSetField(dl_dst=router_rec_port['mac_addr']),
-                datapath.ofproto_parser.OFPActionOutput(out_port)
+                dp1.ofproto_parser.OFPActionSetField(ipv4_dst=int2ip(i)),
+                dp1.ofproto_parser.OFPActionSetField(eth_dst=router_rec_port_mac),
+                dp1.ofproto_parser.OFPActionOutput(out_port)
             ]
 
             # call the add flow method
-            add_flow(datapath, priority=60000, match=self.matches, actions=actions)
+            add_flow(dp1, priority=60000, match=matches, actions=actions)
 
 
 def add_flow(datapath, priority, match, actions, buffer_id=None):
@@ -252,14 +304,21 @@ def add_flow(datapath, priority, match, actions, buffer_id=None):
 
         inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
                                              actions)]
-        if buffer_id:
-            mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
-                                    priority=priority, match=match,
-                                    instructions=inst)
-        else:
-            mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
+        # print datapath.id, inst
+        # if buffer_id:
+        #     mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
+        #                             priority=priority, match=match,
+        #                             instructions=inst)
+        # else:
+        mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
                                     match=match, instructions=inst)
+
+        
+        if priority != 60000:
+            print mod
+
         datapath.send_msg(mod)
+        print "Done! Yay!"
 
 
 class TwinFlowPusherTester:
