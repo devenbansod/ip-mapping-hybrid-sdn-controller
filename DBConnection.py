@@ -3,6 +3,10 @@ import json
 import os
 import sys
 
+import inspect
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+
 class DBConnection:
 	"Wrapper to fetch and insert data into database"
 	conn = None
@@ -12,7 +16,7 @@ class DBConnection:
 	tbl_devices = "devices"
 	tbl_interfaces = "interfaces"
 	tbl_links = "links"
-	db_structure_file = "db_structure.sql"
+	db_structure_file = currentdir+"/db_structure.sql"
 
 	next_global_int_id = 1
 	next_link_id = 1
