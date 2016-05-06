@@ -1,5 +1,5 @@
 from DBConnection import DBConnection
-import TelnetDriver
+from TelnetDriver import TelnetDriver
 
 class legacyRouteMod:
     ipRange = []
@@ -21,15 +21,18 @@ class legacyRouteMod:
 
 
     def addRoutes(self):
-        for i in range(1, len(self.route)):
+        for i in range(1, len(self.route) - 1):
             # get output interface information
-            intf = self.getOutputInterface(self.route[i], self.route[i-1])
+            # intf = self.getOutputInterface(self.route[i], self.route[i-1])
+            interface = self.dbCon.getInterfaceConnectedTo(self.route[i-1], self.route[i])
 
             # Call expect script to add route to the router
             # set network (ipRange[3]) output to intf
-            tD = TelnetDriver()
+            print "int ", interface[4]
+            td = TelnetDriver(self.dbCon)
             success = td.addStaticRoute(
-                self.dbCon, self.route[i], self.ipRange[3], next_router=self.route[i-1], interface=intf
+                self.route[i], self.ipRange[3], next_router=self.route[i-1],
+                next_hop=interface[4] #interface=intf
             )
 
             if (success == False):

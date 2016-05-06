@@ -10,8 +10,8 @@ parentdir = os.path.dirname(currentdir)
 class DBConnection:
 	"Wrapper to fetch and insert data into database"
 	conn = None
-	db = "test_db"
-
+	db = "/home/sdn/Dropbox/SDN/HybridSDN/ClassBasedHybridisation/mininext"+"/test_db"
+	# instance = None
 	tbl_master = "sqlite_master"
 	tbl_devices = "devices"
 	tbl_interfaces = "interfaces"
@@ -20,17 +20,32 @@ class DBConnection:
 
 	next_global_int_id = 1
 	next_link_id = 1
+	instance = None
 
-	def __init__(self, db_file = None):
+	def __new__(cls):
+		if cls.instance == None:
+			cls.instance = object.__new__(cls)
+			cls.instance.name = "The one"
+		print cls.instance.name
+		return cls.instance
+
+	def __init__(self, db_file = None, i = 0):
+		# if DBConnectioninstance is not None:
+		# 	return instance
+
 		if db_file == None:
 			db_file = self.db
 
-		os.system("rm " + self.db)
+		# os.system("rm " + self.db)
 		print "\n*** Initialising and connecting to database"
 		self.conn = sqlite3.connect(db_file)
 		self.db = db_file
-		print "\n*** Setting up tables in the database"
-		self.setupTables()
+
+		if i is not 0:
+			print "\n*** Setting up tables in the database"
+			self.setupTables()
+
+		# instance = self
 
 	def setupTables(self):
 		db_structure = open(self.db_structure_file, "r")
@@ -67,6 +82,7 @@ class DBConnection:
 
 	# Returns the interface connected from src_device to dest_device
 	def getInterfaceConnectedTo(self, src_device, dest_device):
+
 		links_src = self.getLinksFromToDevice(src_device);
 		links_dest = self.getLinksFromToDevice(dest_device);
 		linksA = []
@@ -81,6 +97,7 @@ class DBConnection:
 			i = i + 1
 
 		connected_links = list(set(linksA) & set(linksB))
+
 		for link in connected_links:
 			result = self.conn.execute("SELECT * FROM " + self.tbl_links 
 				+ " WHERE link_id = "
@@ -96,15 +113,19 @@ class DBConnection:
 				return interface.fetchone()
 
 	# returns the 'details' column as a JSON - associative array
-	def getDetailsForDevice(self, router_id):
-		result = self.conn.execute("SELECT details FROM "
-			+ self.tbl_devices + " WHERE device_id = " + str(router_id)
-		)
+	def getDetailsForDevice(self, router_id, router_name=None):
+		if router_name is not None:
+			result = self.conn.execute("SELECT details FROM "
+				+ self.tbl_devices + " WHERE name = '" + str(router_name) + "'"
+			)
+		else:
+			result = self.conn.execute("SELECT details FROM "
+				+ self.tbl_devices + " WHERE device_id = '" + str(router_id) + "'"
+			)
 		return json.loads(result.fetchone()[0])
 
 	# returns the MAC address from IP
 	def getMacFromIP(self, ip_addr):
-		# print ip_addr
 		result = self.conn.execute("SELECT mac_addr, device_id FROM "
 			+ self.tbl_interfaces + " WHERE ip_addr = '" + str(ip_addr) + "'"
 		)
@@ -112,7 +133,6 @@ class DBConnection:
 		if data is None:
 			return None
 		else:
-			# print data
 			return data
 
 	def addDevice(self, device_id, name, details):
@@ -145,11 +165,12 @@ class DBConnection:
 	def addLink(self, int1_str, int2_str):
 		int1_id = self.conn.execute("SELECT global_int_id FROM "
 			+ self.tbl_interfaces + " WHERE int_id = '"
-			+ int1_str + "'"
+			+ str(int1_str) + "'"
 		).fetchone()[0]
+
 		int2_id = self.conn.execute("SELECT global_int_id FROM "
 			+ self.tbl_interfaces + " WHERE int_id = '"
-			+ int2_str + "'"
+			+ str(int2_str) + "'"
 		).fetchone()[0]
 
 		self.conn.execute("INSERT INTO " + self.tbl_links

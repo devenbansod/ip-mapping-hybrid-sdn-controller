@@ -18,6 +18,12 @@ class allocator:
 
     def addRestrictedRanges(self):
         # Add the restricted range 192.0.0.0/8
+        self.buckets.append(0)
+        self.indices[32].append([0, 0, 0, 0])
+
+        self.buckets.append(0)
+        self.indices[24].append([0, 0, 0])
+
         self.buckets.append(192)
         self.indices[8].append([192])
 
@@ -25,14 +31,16 @@ class allocator:
         self.buckets.append(169)
         self.indices[16].append([169, 154])
 
+	# Add other restricted ranges
+
     def getNext (self, subnet):
         subnet = int(subnet)
         bucket, offset = self.addNext (subnet)
         startIP = (bucket*(1<<24)) + (offset*(1<<(32-subnet)))
         endIP = startIP + (1<<(32-subnet)) - 1
         net = (int2ip(startIP)+'/'+str(subnet))
-        # print self.buckets, bucket, offset
-        return [int2ip(startIP), int2ip(endIP), subnet, net]
+
+        return [int2ip(startIP+1), int2ip(endIP), subnet, net]
 
     def getFirstNotIn (self, list, r):
         for i in range(1,r): 
@@ -44,7 +52,7 @@ class allocator:
     def addNext (self, subnet):
         # iterate over list of subnets
         subnet = int(subnet)
-        for i in range(0,len(self.indices[subnet])):
+        for i in range(1,len(self.indices[subnet])):
             # check if bucket is not full
             if (len(self.indices[subnet][i]) < (1<<(subnet-8))):
                 # print "subnet",subnet,"index",i, self.indices[subnet][i]
@@ -72,7 +80,10 @@ class test_allocator:
 
     def testAll(self):
         A = allocator()
-        print "Next range for subnet /8:", A.getNext(8)
+        print "Next range for subnet /28:", A.getNext(28)
+        print "Next range for subnet /28:", A.getNext(28)
+        print "Next range for subnet /28:", A.getNext(28)
+        print "Next range for subnet /28:", A.getNext(28)
         print "Next range for subnet /16:", A.getNext(16)
         print "Next range for subnet /24:", A.getNext(24)
         print "Next range for subnet /16:", A.getNext(16)

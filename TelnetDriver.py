@@ -24,8 +24,9 @@ class TelnetDriver:
         print "Telnet Driver Initialized"
 
     def addStaticRoute(self,
-        router_id, log_file, ip_prefix,
-        next_router=None, next_hop=None, interface=None
+        router_id, ip_prefix,
+        next_router=None, next_hop=None, interface=None,
+        log_file=None
     ):
 
         if next_router == None and next_hop == None:
@@ -36,19 +37,20 @@ class TelnetDriver:
         if next_hop == None:
             next_hop = ""
 
-        add_static_route = "ip route " + ip_prefix + " " + next_hop + " " + interface +  "\r"
+        add_static_route = "ip route " + ip_prefix + " " + next_hop + " " +  "\r" # + interface
 
         details = self.dbCon.getDetailsForDevice(router_id)
-        print "Attemting to connect to Router: " + router_id
+        print "Attemting to connect to Router: " + str(router_id)
 
         while True:
             try:
                 telconn = pexpect.spawn('telnet ' + details['ip']
-                    + ' ' + details['port'],
+                    # + ' ' + details['port'],
+                    + ' ' + 'zebra',
                     timeout=2
                 )
-                telconn.logfile = log_file
 
+                telconn.logfile = sys.stdout
                 telconn.expect(":")
                 telconn.send(details['password'] + "\r")
 
@@ -62,20 +64,16 @@ class TelnetDriver:
                 telconn.expect ("#")
                 telconn.send ("config t\r")
                 time.sleep(1)
-
+                
                 telconn.expect ("#")
                 telconn.sendline (add_static_route)
                 telconn.expect("#")
 
-                telconn.send ("end\r")
-                telconn.expect("#")
+                telconn.send ("exit\r")
+                telconn.kill(1)
 
-                telconn.send ("disable\r")
-                telconn.expect (">")
-                telconn.send ("q\r")
-
-                print "Static Route Added"
-                break
+                print "Static Route Added\n"
+                return True
             except pexpect.TIMEOUT:
                 print "run again"
             except pexpect.EOF:
@@ -101,7 +99,7 @@ class TelnetDriver:
             + ip_prefix + " " + interface + " " + next_hop +  "\r"
 
         details = self.dbCon.getDetailsForDevice(router_id)
-        print "Attemting to connect to Router: " + router_id
+        print "Attemting to connect to Router: " + str(router_id)
 
         while True:
             try:
@@ -145,19 +143,19 @@ class TelnetDriver:
                 break
 
     def get_routes(self, router_id, log_file):
-        print "Attemting to connect to Router: " + router_id
-
-        details = self.dbCon.getDetailsForDevice(router_id)
-        while(True):
+        print "Attemting to connect to Router: " + str(router_id)
+        k = 0
+        details = self.dbCon.getDetailsForDevice(0, router_name=router_id)
+        while(k < 3):
             try:
                 telconn = pexpect.spawn('telnet ' + details['ip'] + ' ospfd\r', timeout = 2)
                 telconn.setwinsize(500, 500)
 
-                telconn.logfile = log_file
                 telconn.expect(":")
                 telconn.send("zebra" + "\r")
 
                 telconn.expect(">")
+                telconn.logfile = log_file
                 telconn.send("show ip ospf neighbor" + "\r")
                 telconn.send("\r")
 
@@ -170,6 +168,7 @@ class TelnetDriver:
                 break
             except pexpect.TIMEOUT:
                 print "run again"
+                k = k + 1
             except pexpect.EOF:
                 print "Unable to connect to remote host: No route to host\n"
                 break
