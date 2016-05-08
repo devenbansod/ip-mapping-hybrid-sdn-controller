@@ -14,19 +14,18 @@ from DBConnection import DBConnection
 from Allocator import allocator
 from Allocator import ip2int
 from Allocator import int2ip
-
+from ryu.controller.event import *
+import signal
 import os, sys, inspect
+
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0,parentdir)
-from event import *
-
-import signal
 
 
+# HELPER functions
 def handler(signum, frame):
     print 'Ctrl+Z pressed, but ignored'
-    
 
 signal.signal(signal.SIGTSTP, handler)
 
@@ -64,23 +63,17 @@ class policyTranslator(app_manager.RyuApp):
         self.A = allocator()
         self.dbCon = DBConnection()
         self.mac_to_port = {}
-        # self.setPolicy("10.0.1.0/24", {'tcp_dst' : 23}, "10.0.2.0/24", [1, 4, 2], )
         self.datapath_store = {}
         self.curr = 0
-               
 
-    @set_ev_cls(EventMessage) # At this point, a message 'test' should be printed
+    # Event to trigger the Policy updation, sent through another controller
+    @set_ev_cls(EventMessage)
     def event_Test(self, ev):
-        print ev.message
-        # self.setPolicy(eval(ev.message))
+        self.curr = self.curr + 1
         if (self.curr > 1):
             print "Installing ..."
             self.setPolicy({'nw_proto' : 6, 'dl_type' : 0x0800}, "10.0.1.10/24", "10.0.2.10/24", [1, 13, 14, 2])
             self.setPolicy({'nw_proto' : 6, 'dl_type' : 0x0800}, "10.0.2.10/24", "10.0.1.10/24", [2, 14, 13, 1])
-            # self.setPolicy({'nw_proto' : 1, 'dl_type' : 0x0800}, "10.0.1.20/28", "10.0.2.20/28", [1, 11, 12, 2])
-            # self.setPolicy({'nw_proto' : 1, 'dl_type' : 0x0800}, "10.0.2.20/28", "10.0.1.20/28", [2, 12, 11, 1])
-            self.curr = -10000000
-        # self.setPolicy({'nw_proto' : 1, 'dl_type' : 0x0800}, "10.0.1.0/24", "10.0.2.0/24", [1, 13, 14, 2])
 
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -102,14 +95,6 @@ class policyTranslator(app_manager.RyuApp):
                                           ofproto.OFPCML_NO_BUFFER)]
         add_flow(datapath, 0, match, actions)
 
-        self.curr = self.curr + 1
-        # if (self.curr > 1):
-        #     self.setPolicy({'nw_proto' : 6, 'dl_type' : 0x0800}, "10.0.1.0/24", "10.0.2.0/24", [1, 13, 14, 2])
-        #     self.curr = -10000000
-
-            # self.setPolicy({'tcp_dst' : 23, 'nw_proto' : 1, 'dl_type' : 0x0800}, "10.0.1.0/24", "10.0.2.20/32", [1, 11, 12, 2])
-
-
 
     # PACKET - IN method handler
     # would require to handle the Internet IP Clash problem
@@ -127,9 +112,9 @@ class policyTranslator(app_manager.RyuApp):
     #     ofproto = datapath.ofproto
 
     #     pkt = packet.Packet(msg.data)
-        
+
     #     pkt_ipv4 = pkt.get_protocol(ipv4.ipv4)
-        
+
     #     if pkt_ipv4 == None:
     #         self._simple_packet_in_handler(ev)
     #         return
@@ -166,8 +151,6 @@ class policyTranslator(app_manager.RyuApp):
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})
 
-        # self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
-
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = in_port
 
@@ -181,6 +164,7 @@ class policyTranslator(app_manager.RyuApp):
         # install a flow to avoid packet_in next time
         if out_port != ofproto.OFPP_FLOOD:
             match = parser.OFPMatch(in_port=in_port, eth_dst=dst)
+
             # verify if we have a valid buffer_id, if yes avoid to send both
             # flow_mod & packet_out
             if msg.buffer_id != ofproto.OFP_NO_BUFFER:
@@ -188,7 +172,6 @@ class policyTranslator(app_manager.RyuApp):
                 return
             else:
                 add_flow(datapath, 1, match, actions)
-            # print "their ", match 
 
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
@@ -213,12 +196,13 @@ class policyTranslator(app_manager.RyuApp):
     # src   = 192.168.1.0/24
     # dst   = 192.168.2.0/24
     # match = ['tcp_port' : '23']
-    # path  = [s1_dev_id, r1_dev_id, .... other Rs .... s2_dev_id]  
+    # path  = [s1_dev_id, r1_dev_id, .... other Rs .... s2_dev_id]
     def setPolicy (self, m, src, dst, path):
         # get Range to Map the Policy path to
         mapRange = self.getAllocation (dst)
 
         pathPrime = path[:]
+
         # Call the legacy route modulator to install routes in legacy devices
         LRM = legacyRouteMod(self.dbCon, mapRange, pathPrime)
         LRM.addRoutes()
@@ -235,66 +219,42 @@ class twinFlowPusher:
     @staticmethod
     def push(dp1, dp2, dbCon, mapRange, matchConditions, src, dst, sdn1_id, r1_dev_id, rN_dev_id, sdnN_id):
         already_added = {int(sdnN_id) : False}
-        # print src, dst, sdn1_id, sdnN_id, r1_dev_id
+
         dest_netmask, dest_wildcard = getMaskWildcard(str2net(dst)[1])
         src_netmask, src_wildcard = getMaskWildcard(str2net(src)[1])
-        # print str2net(src), str2net(dst)
 
         inPort = dbCon.getInterfaceConnectedTo(sdnN_id, rN_dev_id)
-        print inPort
+
         # FIRST CHECK if Reverse Mapping entries already added in Dest SDN
         # Need to remeber if added or not
         if already_added[int(sdnN_id)] == False:
+
             i = 0
             # iterate over mapRange IPs with 'i'
-            # print mapRange
-            # print "St" , ip2int(mapRange[0])
-            # print "end", ip2int(mapRange[1])+1
             for i in range(ip2int(mapRange[0]), ip2int(mapRange[1])+1):
-                # print int2ip(i)
-                # get Datapath from dpid
-                # datapath = DPset.get(sdn1_id)
 
-                # dest_wildcard = matchConditions['mapRange'] + "" # append appropriate wildcard here
-                # print "map ", mapRange
-                # ip_back_map = int2ip( (1<<map
-                # print i
-                # need to make this dynamic
-                # print matchConditions
-
-                # print int2ip(ip2int(dest_wildcard) & i)
-                print (int2ip(ip2int(dest_wildcard) & i), dest_wildcard), int(inPort[5]), int2ip(i)
                 matches = dp2.ofproto_parser.OFPMatch(
                     in_port=int(inPort[5]),
                     ip_proto=matchConditions['nw_proto'],
                     ipv4_dst=(int2ip(ip2int(dest_wildcard) & i), dest_wildcard),
-                    # ipv4_dst=int2ip(i),
                     eth_type  = matchConditions['dl_type']
-                    # tcp_dst=matchConditions['tcp_dst']
                 )
-                # print matches
 
-                # need to write this
-                # rev_mapped_dest_ip = getRevMappedDestinationIP(i)
-                # print "wild", dest_wildcard
-                # print "dst", dest_wildcard
                 rev_mapped_dest_ip = (i & ip2int(dest_wildcard)) | ip2int((str2net(dst))[0])
-                # print "rev ", rev_mapped_dest_ip, "i", i, (i & ip2int(dest_wildcard)), ip2int((str2net(dst))[0])
 
                 # from the interface table in database
-                # print "int2ip(rev_mapped_dest_ip)
                 host = dbCon.getMacFromIP(int2ip(rev_mapped_dest_ip)) 
 
                 if host is None:
                     continue
 
                 host_mac = str(host[0]).encode('utf-8')
-                # print "deveice id", str(host[1]).encode('utf-8')
                 result =  dbCon.getInterfaceConnectedTo(sdnN_id, host[1])
-                # print "1", result
+
                 if result is None:
                     continue
                 out_port = int(result[5])
+
                 # need to use OpenFlow 1.2+ here
                 actions = [
                     dp2.ofproto_parser.OFPActionSetField(ipv4_dst=int2ip(rev_mapped_dest_ip)),
@@ -310,10 +270,8 @@ class twinFlowPusher:
 
         # required for setting the Output ACTION in Flow entry to-be-added
         result = dbCon.getInterfaceConnectedTo(sdn1_id, r1_dev_id)
-        # print "2", result
 
         if result is None:
-            print "Ya"
             return
 
         out_port = int(result[5])
@@ -324,21 +282,14 @@ class twinFlowPusher:
 
         # add Mapping entries in source SDN switch
         i = 0
+
         # iterate over mapRange IPs with 'i'
         for i in range(ip2int(mapRange[0]), ip2int(mapRange[1])+1):
-            # get Datapath from dpid
-            # datapath = DPset.get(sdn1_id)
-
-            # need to make this dynamic
-            # print int2ip((i & ip2int(dest_wildcard)) | ip2int((str2net(dst))[0])) + "/" + netmask
-            # print src
-            # print (int2ip((i & ip2int(dest_wildcard)) | ip2int((str2net(dst))[0])), dest_netmask)
             matches = dp1.ofproto_parser.OFPMatch(
                 ip_proto = matchConditions['nw_proto'],
                 ipv4_src   = (str2net(src)[0], src_netmask),
                 ipv4_dst   = int2ip((i & ip2int(dest_wildcard)) | ip2int((str2net(dst))[0])),
                 eth_type  = matchConditions['dl_type']
-                # tcp_dst  = matchConditions['tcp_dst']
             )
 
             # need to use OpenFlow 1.2+ here
@@ -348,7 +299,6 @@ class twinFlowPusher:
             if host is None:
                 continue
 
-            print "IP mapped to ", int2ip(i)
             actions = [
                 dp1.ofproto_parser.OFPActionSetField(ipv4_dst=int2ip(i)),
                 dp1.ofproto_parser.OFPActionSetField(eth_dst=router_rec_port_mac),
@@ -365,23 +315,18 @@ def add_flow(datapath, priority, match, actions, buffer_id=None):
 
         inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
                                              actions)]
-        # print datapath.id, inst
-        # if buffer_id:
-        #     mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
-        #                             priority=priority, match=match,
-        #                             instructions=inst)
-        # else:
-        mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
+        if buffer_id:
+            mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
+                                    priority=priority, match=match,
+                                    instructions=inst)
+        else:
+	        mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
                                     match=match, instructions=inst)
 
-        
-        # if priority != 60000:
-            # print mod
-
         datapath.send_msg(mod)
-        # print "Done! Yay!"
 
 
+# test class, invoke only when testing
 class TwinFlowPusherTester:
     def __init__(self):
         "Tester initialized"

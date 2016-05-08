@@ -11,7 +11,7 @@ class DBConnection:
 	"Wrapper to fetch and insert data into database"
 	conn = None
 	db = "/home/sdn/Dropbox/SDN/HybridSDN/ClassBasedHybridisation/mininext"+"/test_db"
-	# instance = None
+
 	tbl_master = "sqlite_master"
 	tbl_devices = "devices"
 	tbl_interfaces = "interfaces"
@@ -44,8 +44,6 @@ class DBConnection:
 		if i is not 0:
 			print "\n*** Setting up tables in the database"
 			self.setupTables()
-
-		# instance = self
 
 	def setupTables(self):
 		db_structure = open(self.db_structure_file, "r")
@@ -187,6 +185,8 @@ def printResult(rows):
 			sys.stdout.write(str(element).encode('utf-8') + "|\t")
 		print ""
 
+
+# Test class, invoke only when testing
 class test_DBConnection:
 
 	# Test cases

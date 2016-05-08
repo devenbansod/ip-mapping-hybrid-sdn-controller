@@ -13,7 +13,7 @@ from DBConnection import DBConnection
 
 # ip_prefix = ""    # "192.168.1.4" or "192.168.1.0/24"
 # next_hop = ""     # "10.0.1.4"
-# interface = ""    # eth2
+# interface = ""    # "eth2"
 
 
 class TelnetDriver:
@@ -23,6 +23,7 @@ class TelnetDriver:
         self.dbCon = dbCon
         print "Telnet Driver Initialized"
 
+    # function to add static route in specified router
     def addStaticRoute(self,
         router_id, ip_prefix,
         next_router=None, next_hop=None, interface=None,
@@ -64,7 +65,7 @@ class TelnetDriver:
                 telconn.expect ("#")
                 telconn.send ("config t\r")
                 time.sleep(1)
-                
+
                 telconn.expect ("#")
                 telconn.sendline (add_static_route)
                 telconn.expect("#")
@@ -83,6 +84,7 @@ class TelnetDriver:
 
 
 
+	# function to delete static route in specified router
     def removeStaticRoute(self,
         router_id, log_file, ip_prefix,
         next_router=None, next_hop=None, interface=None
@@ -142,6 +144,7 @@ class TelnetDriver:
                 print "Unable to connect to remote host: No route to host\n"
                 break
 
+    # function to get all OSPF routes in specified router
     def get_routes(self, router_id, log_file):
         print "Attemting to connect to Router: " + str(router_id)
         k = 0
@@ -174,6 +177,7 @@ class TelnetDriver:
                 break
 
 
+# Test class, invoke only when testing
 class TestTelnetDriver:
 
     def __init__(self):
