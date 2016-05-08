@@ -1,0 +1,9 @@
+Run instructions
+=================
+
+1. Open a tab in Terminal. Run `ryu-manager --app-lists PolicyTranslator.py ryu.app.simple_switch"
+2. Open a new tab in Terminal. Run the topology script as `sudo python simple_test_topo.py`
+3. In Mininet instance that starts after step 2, run the following commands
+	`sh sudo ovs-vsctl set Bridge s1 protocols=OpenFlow13,OpenFlow10`
+	`sh sudo ovs-vsctl set Bridge s2 protocols=OpenFlow13,OpenFlow10`
+4. Now, pingall should work

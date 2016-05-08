@@ -10,7 +10,7 @@ parentdir = os.path.dirname(currentdir)
 class DBConnection:
 	"Wrapper to fetch and insert data into database"
 	conn = None
-	db = "/home/sdn/Dropbox/SDN/HybridSDN/ClassBasedHybridisation/mininext"+"/test_db"
+	db = "/home/deven/ip-mapping-hybrid-sdn-controller/" + "test_db"
 
 	tbl_master = "sqlite_master"
 	tbl_devices = "devices"

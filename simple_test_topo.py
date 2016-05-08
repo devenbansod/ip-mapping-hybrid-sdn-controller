@@ -59,9 +59,6 @@ def myNetwork():
     r4.cmd('ifconfig r4-eth0 10.0.1.4 netmask 255.255.255.0')
     r4.cmd('ifconfig r4-eth1 10.0.2.4 netmask 255.255.255.0')
 
-    s1.cmd('sh ovs-vsctl set bridge s1 protocols=OpenFlow13')
-    s2.cmd('sh ovs-vsctl set bridge s2 protocols=OpenFlow13')
-
     s1.intf('s1-eth1').setMAC('00:00:00:00:01:01')
     s1.intf('s1-eth2').setMAC('00:00:00:00:01:02')
     s1.intf('s1-eth3').setMAC('00:00:00:00:01:03')
@@ -72,7 +69,7 @@ def myNetwork():
 
     r3.intf('r3-eth0').setMAC('00:00:00:00:03:01')
     r3.intf('r3-eth1').setMAC('00:00:00:00:03:02')
-    
+
     r4.intf('r4-eth0').setMAC('00:00:00:00:04:01')
     r4.intf('r4-eth1').setMAC('00:00:00:00:04:02')
 
@@ -81,6 +78,9 @@ def myNetwork():
 
     h1.cmd('ip route add default via 10.0.1.3')
     h2.cmd('ip route add default via 10.0.2.4')
+
+    s1.cmd('sh ovs-vsctl set bridge s1 protocols=OpenFlow13,OpenFlow10')
+    s2.cmd('sh ovs-vsctl set bridge s2 protocols=OpenFlow13,OpenFlow10')
 
 
     CLI(net)

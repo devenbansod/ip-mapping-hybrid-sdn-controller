@@ -14,20 +14,13 @@ from DBConnection import DBConnection
 from Allocator import allocator
 from Allocator import ip2int
 from Allocator import int2ip
-from ryu.controller.event import *
 import signal
 import os, sys, inspect
+from event import *
 
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0,parentdir)
-
-
-# HELPER functions
-def handler(signum, frame):
-    print 'Ctrl+Z pressed, but ignored'
-
-signal.signal(signal.SIGTSTP, handler)
 
 def net2str (net):
     return (str(net[0]) + "/" + str(net[1]))
@@ -42,7 +35,7 @@ def getMaskWildcard(subnet_size):
 
 class policyTranslator(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
-    # _EVENTS =  [EventMessage]
+    _EVENTS =  [EventMessage]
 
     # src = ""                                      # Source subnet of the policy
     # dst = ""                                      # Destination subnet of the policy
